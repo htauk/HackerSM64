@@ -19,6 +19,12 @@ https://github.com/buu342/N64-UNFLoader
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef SDATA
+void setgp(void);
+#else
+#define setgp()
+#endif
+
 #if DEBUG_MODE
     
     /*********************************
@@ -958,6 +964,7 @@ https://github.com/buu342/N64-UNFLoader
     {
         char errortype = USBERROR_NONE;
         usbMesg* threadMsg;
+        setgp();
         
         #ifndef LIBDRAGON
             // Create the message queue for the USB message
@@ -1175,6 +1182,7 @@ https://github.com/buu342/N64-UNFLoader
             {
                 OSMesg msg;
                 OSThread *curr;
+                setgp();
                 
                 // Create the message queue for the fault message
                 osCreateMesgQueue(&faultMessageQ, &faultMessageBuf, 1);
@@ -1262,6 +1270,7 @@ https://github.com/buu342/N64-UNFLoader
             {
                 OSId mainid = (OSId)arg;
                 OSThread* mainthread = &rdbThread;
+                setgp();
                             
                 // Find the main thread pointer given its ID
                 while (mainthread->id != mainid)
