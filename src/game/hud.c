@@ -20,6 +20,8 @@
 
 #include "config.h"
 
+#include "lib/libpl/libpl.h"
+
 /* @file hud.c
  * This file implements HUD rendering and power meter animations.
  * That includes stars, lives, coins, camera status, power meter, timer
@@ -538,7 +540,12 @@ void render_hud_camera_status(void) {
  * excluding the cannon reticle which detects a camera preset for it.
  */
 void render_hud(void) {
+    
     s16 hudDisplayFlags = gHudDisplay.flags;
+
+    if (gCurrLevelNum == LEVEL_CASTLE_GROUNDS) {
+        print_small_text(0,0,libpl_get_my_rhdc_username(), PRINT_TEXT_ALIGN_CENTER, 20, FONT_DEFAULT);
+    }
 
     if (hudDisplayFlags == HUD_DISPLAY_NONE) {
         sPowerMeterHUD.animation = POWER_METER_HIDDEN;
