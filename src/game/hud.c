@@ -18,9 +18,11 @@
 #include "puppycam2.h"
 #include "puppyprint.h"
 
-#include "config.h"
-
 #include "lib/libpl/libpl.h"
+
+#include "config.h"
+#include "string.h"
+
 
 /* @file hud.c
  * This file implements HUD rendering and power meter animations.
@@ -535,17 +537,68 @@ void render_hud_camera_status(void) {
     gSPDisplayList(gDisplayListHead++, dl_hud_img_end);
 }
 
+u8 setUser = FALSE;
+u8 setAvatar = FALSE;
+u8 username[32];
+Texture avatar[32 * 32 * 2];
+
+
 /**
  * Render HUD strings using hudDisplayFlags with it's render functions,
  * excluding the cannon reticle which detects a camera preset for it.
  */
+
+void renderTexture(void* texture, int x, int y, int width, int height) {
+    gSPDisplayList(gDisplayListHead++, dl_hud_img_begin);
+
+    gDPSetTile(
+        gDisplayListHead++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE,
+        0, G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD,
+        G_TX_WRAP | G_TX_NOMIRROR, G_TX_NOMASK, G_TX_NOLOD
+    );
+
+    gDPTileSync(gDisplayListHead++);
+
+    gDPSetTile(
+        gDisplayListHead++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 0, G_TX_RENDERTILE,
+        0, G_TX_CLAMP, 5, G_TX_NOLOD,
+        G_TX_CLAMP, 5, G_TX_NOLOD
+    );
+
+    gDPSetTileSize(
+        gDisplayListHead++, G_TX_RENDERTILE, 0, 0, 
+        (width - 1) << G_TEXTURE_IMAGE_FRAC, 
+        (height - 1) << G_TEXTURE_IMAGE_FRAC
+    );
+
+    gDPPipeSync(gDisplayListHead++);
+
+    gDPSetTextureImage(
+        gDisplayListHead++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, texture
+    );
+
+    gDPLoadSync(gDisplayListHead++);
+
+    gDPLoadBlock(
+        gDisplayListHead++, G_TX_LOADTILE, 0, 0,
+        (width * height) - 1, CALC_DXT(width, G_IM_SIZ_16b_BYTES)
+    );
+
+    gSPTextureRectangle(
+        gDisplayListHead++, 
+        x << 2, y << 2, 
+        (x + width - 1) << 2, (y + height - 1) << 2,
+        G_TX_RENDERTILE, 0, 0, 4 << 10, 1 << 10
+    );
+
+    gSPDisplayList(gDisplayListHead++, dl_hud_img_end);
+}
+
+
 void render_hud(void) {
-    
     s16 hudDisplayFlags = gHudDisplay.flags;
 
-    if (gCurrLevelNum == LEVEL_CASTLE_GROUNDS) {
-        print_small_text(0,0,libpl_get_my_rhdc_username(), PRINT_TEXT_ALIGN_CENTER, 20, FONT_DEFAULT);
-    }
+
 
     if (hudDisplayFlags == HUD_DISPLAY_NONE) {
         sPowerMeterHUD.animation = POWER_METER_HIDDEN;
@@ -621,4 +674,56 @@ void render_hud(void) {
         }
 #endif
     }
+	if (libpl_is_supported(LPL_ABI_VERSION_6)) {
+		if (!setUser) {
+			const char *userCheck = libpl_get_my_rhdc_username();
+
+			if (!userCheck) {
+				return;
+			}
+			lpl_strncpy2((char *)username, userCheck, 31);
+
+			setUser = TRUE;
+		} else if (!setAvatar) {
+			u8 status = libpl_get_rhdc_avatar_16_async((char *)username, &avatar[0]);
+			
+			if (lpl_errno != LPL_OKAY) { // not ready
+				setAvatar = FALSE;
+				return;
+			}
+
+			switch(status) {
+				case 0: // success
+					setAvatar = TRUE;
+				break;
+				case 1: // user not found
+				case 3: // image proc error
+					setAvatar = TRUE;
+					bzero(avatar, sizeof(Texture) * 32 * 32 * 2);
+					return;
+				break;
+				case 2: // network error
+				case 4: // rate limit
+					setAvatar = FALSE;
+					return;
+			}
+		}
+
+        char msg[100];
+        int username_length = strlen((char *)username);
+        int font_size = 400 - (username_length - 1) * 10; 
+        if (font_size < 150) { 
+            font_size = 150;
+        } else if (font_size > 400) {
+            font_size = 400;
+        }
+
+        sprintf(msg, "<SIZE_%d>%s", font_size, (char *)username);
+        print_small_text(SCREEN_CENTER_X, SCREEN_CENTER_Y, msg, PRINT_TEXT_ALIGN_CENTER, 30, FONT_OUTLINE);
+
+
+    	//renderTexture(avatar, SCREEN_CENTER_X - 16, SCREEN_CENTER_Y - 16, 32, 32);
+    }
+
+	    
 }

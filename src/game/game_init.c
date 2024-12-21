@@ -19,6 +19,7 @@
 #include "segment2.h"
 #include "segment_symbols.h"
 #include "rumble_init.h"
+#include "lib/libpl/libpl.h"
 #ifdef HVQM
 #include <hvqm/hvqm.h>
 #endif
